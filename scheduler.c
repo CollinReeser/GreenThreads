@@ -121,12 +121,17 @@ void addThreadData(size_t argBytes, void* funcAddr, ...)
         // Increment index
         g_threadManager->threadArrIndex++;
     }
-    // Test
-    // void (*castedFuncPtr)(uint8_t) = (void (*)(uint8_t))funcAddr;
-    // castedFuncPtr(funcArgs[0]);
-    // void (*castedFuncPtr)(uint8_t, uint8_t, uint8_t) = (void (*)(uint8_t, uint8_t, uint8_t))funcAddr;
-    // castedFuncPtr(funcArgs[0], funcArgs[1], funcArgs[2]);
-    callThreadFunc(newThread);
+}
+
+void execAllManagedFuncs()
+{
+    uint32_t i = 0;
+    for (i = 0; i < g_threadManager->threadArrIndex; i++)
+    {
+        ThreadData* curThread = g_threadManager->threadArr[i];
+        callFunc(curThread->funcArgsLen, curThread->funcAddr,
+            curThread->funcArgs);
+    }
 }
 
 // Example function. Hailstone sequence
@@ -166,7 +171,17 @@ int main(int argc, char** argv)
     args[1] = 20;
     args[2] = 30;
     newProc(3, &average_novararg, args);
+    args[0] = 20;
+    args[1] = 30;
+    args[2] = 40;
+    newProc(3, &average_novararg, args);
+    args[0] = 30;
+    args[1] = 40;
+    args[2] = 50;
+    newProc(3, &average_novararg, args);
     free(args);
+
+    execAllManagedFuncs();
 
     takedownThreadManager();
     return 0;
