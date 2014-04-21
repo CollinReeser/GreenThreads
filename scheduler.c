@@ -5,6 +5,7 @@
 #include <stdarg.h>
 
 #define THREAD_DATA_ARR_START_LEN 4
+#define THREAD_DATA_ARR_MUL_INCREASE 2
 
 void hitASM()
 {
@@ -29,7 +30,46 @@ typedef struct
     size_t funcArgsLen;
 } ThreadData;
 
-void initThreadData(size_t argBytes, void* funcAddr, ...)
+typedef struct
+{
+    // Array of managed green threads
+    ThreadData** threadArr;
+    // Length of managed green threads array
+    uint32_t threadArrLen;
+    // Index one past last valid ThreadData in threadArr
+    uint32_t threadArrIndex;
+} GlobalThreadMem;
+
+GlobalThreadMem* g_threadManager = NULL;
+
+void initThreadManager()
+{
+    // Alloc space for struct
+    g_threadManager = (GlobalThreadMem*)malloc(sizeof(GlobalThreadMem));
+    // Alloc initial space for ThreadData* array
+    g_threadManager->threadArr =
+        (ThreadData**)malloc(sizeof(ThreadData*) * THREAD_DATA_ARR_START_LEN);
+    // Init ThreadData* array length tracker
+    g_threadManager->threadArrLen = THREAD_DATA_ARR_START_LEN;
+    // Init ThreadData* array index tracker
+    g_threadManager->threadArrIndex = 0;
+}
+
+void takedownThreadManager()
+{
+    uint32_t i;
+    // Loop over all valid ThreadData* and dealloc them
+    for (i = 0; i < g_threadManager->threadArrIndex; i++)
+    {
+        deallocThreadData(g_threadManager->threadArr[i]);
+    }
+    // Dealloc memory for ThreadData*
+    free(g_threadManager->threadArr);
+    // Dealloc memory for struct
+    free(g_threadManager);
+}
+
+void addThreadData(size_t argBytes, void* funcAddr, ...)
 {
     // Alloc new ThreadData
     ThreadData* newThread = (ThreadData*)malloc(sizeof(ThreadData));
@@ -45,8 +85,29 @@ void initThreadData(size_t argBytes, void* funcAddr, ...)
     memcpy(funcArgs, vargArgStart, argBytes);
     // Give the ThreadData object ownership of the arguments pointer
     newThread->funcArgs = funcArgs;
-
-
+    // Put newThread into global thread manager, allocating space for the
+    // pointer if necessary
+    if (g_threadManager->threadArrIndex < g_threadManager->threadArrLen)
+    {
+        // Place pointer into ThreadData* array
+        g_threadManager->threadArr[g_threadManager->threadArrIndex] = newThread;
+        // Increment index
+        g_threadManager->threadArrIndex++;
+    }
+    // We need to allocate more space for the threadArr array
+    else
+    {
+        // Allocate more space for thread manager
+        g_threadManager->threadArr = (ThreadData**)realloc(
+            g_threadManager->threadArr,
+            g_threadManager->threadArrLen * THREAD_DATA_ARR_MUL_INCREASE);
+        g_threadManager->threadArrLen =
+            g_threadManager->threadArrLen * THREAD_DATA_ARR_MUL_INCREASE;
+        // Place pointer into ThreadData* array
+        g_threadManager->threadArr[g_threadManager->threadArrIndex] = newThread;
+        // Increment index
+        g_threadManager->threadArrIndex++;
+    }
     // Test
     // void (*castedFuncPtr)(uint8_t) = (void (*)(uint8_t))funcAddr;
     // castedFuncPtr(funcArgs[0]);
@@ -54,30 +115,12 @@ void initThreadData(size_t argBytes, void* funcAddr, ...)
     castedFuncPtr(funcArgs[0], funcArgs[1], funcArgs[2]);
 }
 
-typedef struct
+void deallocThreadData(ThreadData* thread)
 {
-    // Array of managed green threads
-    ThreadData* threadArr;
-    // Length of managed green threads array
-    uint32_t threadArrLen;
-    // Index one past last valid ThreadData in threadArr
-    uint32_t threadArrIndex;
-} GlobalThreadMem;
-
-GlobalThreadMem* g_threadManager;
-
-void initThreadManager()
-{
-    g_threadManager = (GlobalThreadMem*)malloc(sizeof(GlobalThreadMem));
-    g_threadManager->threadArr =
-        (ThreadData*)malloc(sizeof(ThreadData) * THREAD_DATA_ARR_START_LEN);
-    g_threadManager->threadArrLen = THREAD_DATA_ARR_START_LEN;
-    g_threadManager->threadArrIndex = 0;
-}
-
-void takedownThreadManager()
-{
-
+    // Dealloc memory for function arguments
+    free(thread->funcArgs);
+    // Dealloc memory for struct
+    free(thread);
 }
 
 // Example function. Hailstone sequence
@@ -129,6 +172,7 @@ void average_novararg(uint8_t one, uint8_t two, uint8_t three)
 
 int main(int argc, char** argv)
 {
+    initThreadManager();
     // testCallFunc();
     // uint8_t* args = (uint8_t*)malloc(sizeof(uint8_t));
     // args[0] = 10;
@@ -141,6 +185,6 @@ int main(int argc, char** argv)
     args[2] = 30;
     newProc(3, &average_novararg, args);
     free(args);
-    // initThreadData(1, &example_func, 10);
+    // addThreadData(1, &example_func, 10);
     return 0;
 }

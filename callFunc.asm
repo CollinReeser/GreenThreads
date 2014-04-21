@@ -1,7 +1,7 @@
     extern printf      ; the C function, to be called
     extern average
     extern example_func
-    extern initThreadData
+    extern addThreadData
     extern hitASM
 
     SECTION .data       ; Data section, initialized variables
@@ -41,7 +41,7 @@ testCallFunc:
     push    example_func
     mov     eax, 1
     push    eax
-    call    initThreadData
+    call    addThreadData
     add     esp, 9
 
     call    hitASM
@@ -85,7 +85,7 @@ newProc:
     push    ecx                     ; Push function address
     push    edx                     ; Push argBytes
 
-    call    initThreadData          ; Initialize the thread struct
+    call    addThreadData          ; Initialize the thread struct
 
     ; Add 8 bytes from funcAddr and argBytes values back to the stack
     add     esp, 8
