@@ -30,6 +30,14 @@ typedef struct
     size_t funcArgsLen;
 } ThreadData;
 
+void deallocThreadData(ThreadData* thread)
+{
+    // Dealloc memory for function arguments
+    free(thread->funcArgs);
+    // Dealloc memory for struct
+    free(thread);
+}
+
 typedef struct
 {
     // Array of managed green threads
@@ -115,14 +123,6 @@ void addThreadData(size_t argBytes, void* funcAddr, ...)
     castedFuncPtr(funcArgs[0], funcArgs[1], funcArgs[2]);
 }
 
-void deallocThreadData(ThreadData* thread)
-{
-    // Dealloc memory for function arguments
-    free(thread->funcArgs);
-    // Dealloc memory for struct
-    free(thread);
-}
-
 // Example function. Hailstone sequence
 void example_func(uint8_t start)
 {
@@ -186,5 +186,6 @@ int main(int argc, char** argv)
     newProc(3, &average_novararg, args);
     free(args);
     // addThreadData(1, &example_func, 10);
+    takedownThreadManager();
     return 0;
 }
