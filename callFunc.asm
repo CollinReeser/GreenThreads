@@ -7,49 +7,62 @@
     SECTION .data       ; Data section, initialized variables
 
 fmt:    db "Entered asm func", 10, 0 ;
+val:    db "Val: %u", 10, 0
 
     SECTION .text
 
-    global testCallFunc
-testCallFunc:
-    push    ebp     ; set up stack frame
+    ; extern void callFunc(size_t argBytes, void* funcAddr, uint8_t* args);
+    global callFunc
+callFunc:
+    push    ebp                     ; set up stack frame
     mov     ebp,esp
 
-    push    fmt
-    call    printf
-    add     esp, 4
+    push    ebx                     ; Register preservation
+    push    esi
 
-    sub     esp, 1
-    mov     byte [esp], 21
-    sub     esp, 1
-    mov     byte [esp], 32
-    sub     esp, 1
-    mov     byte [esp], 43
-    sub     esp, 1
-    mov     byte [esp], 54
-    sub     esp, 1
-    mov     byte [esp], 65
-    mov     eax, 5
-    push    eax
-    call    average
-    add     esp, 9
+    ; Get function arguments. Args START at [ebp + 8]
+    mov     eax, dword [ebp + 8]    ; argBytes (counter)
+    mov     ecx, dword [ebp + 12]   ; funcAddr (address)
+    mov     esi, dword [ebp + 16]   ; args (pointer)
+    ; The args are passed in in the order they would appear in the signature
+    ; for the function pointed to by funcAddr, so we set up esi to push the
+    ; args to the stack in reverse order
+    add     esi, eax
+    sub     esi, 1
+    mov     edx, dword [ebp + 8]    ; argBytes (literal)
 
-    call    hitASM
+    .loop:
+    mov     bl, byte [esi]          ; Get byte at current args pointer index
+    ; We expect 4-byte arguments, so...
+    ; This is the chunk that needs to be modified once we have access to
+    ; function signatures, so that alignment can be automatically handled
+    shl     ebx, 24
+    shr     ebx, 24
+    push    ebx
 
-    sub     esp, 1
-    mov     byte [esp], 10
-    push    example_func
-    mov     eax, 1
-    push    eax
-    call    addThreadData
-    add     esp, 9
+    ; We would do this if the ABI didn't expect 4-byte arguments
+    ;sub     esp, 1                  ; Allocate space on stack
+    ;mov     byte [esp], bl          ; Move byte onto stack
 
-    call    hitASM
+    sub     esi, 1                  ; Decrement pointer to previous byte
+    sub     eax, 1                  ; Decrement counter
+    jne     .loop                   ; Loop if not done
+    .endloop:
 
-    mov     esp, ebp    ; takedown stack frame
-    pop     ebp     ; same as "leave" op
+    call    ecx                     ; Call function
 
-    ret         ; return
+    ; Reset stack to where esi and ebx are. We get the num of bytes, and mul
+    ; by 4 since we were pushing dwords above to satisfy alignment
+    mov     eax, [ebp + 8]
+    imul    eax, 4
+    add     esp, eax
+
+    pop     esi                     ; Restore registers
+    pop     ebx
+
+    mov     esp, ebp                ; takedown stack frame
+    pop     ebp
+    ret
 
 
     ; extern void newProc(size_t argBytes, void* funcAddr, uint8_t* args);
@@ -63,13 +76,13 @@ newProc:
 
     ; Get function arguments. Args START at [ebp + 8]
     mov     eax, dword [ebp + 8]    ; argBytes (counter)
+    mov     ecx, dword [ebp + 12]   ; funcAddr (address)
     mov     esi, dword [ebp + 16]   ; args (pointer)
     ; The args are passed in in the order they would appear in the signature
     ; for the function pointed to by funcAddr, so we set up esi to push the
     ; args to the stack in reverse order
     add     esi, eax
     sub     esi, 1
-    mov     ecx, dword [ebp + 12]   ; funcAddr (address)
     mov     edx, dword [ebp + 8]    ; argBytes (literal)
 
     .loop:

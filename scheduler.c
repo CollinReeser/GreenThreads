@@ -17,8 +17,8 @@ void hit()
     printf("Hit\n");
 }
 
-extern void textCallFunc();
 extern void newProc(size_t argBytes, void* funcAddr, uint8_t* args);
+extern void callFunc(size_t argBytes, void* funcAddr, uint8_t* args);
 
 typedef struct
 {
@@ -29,6 +29,11 @@ typedef struct
     // Length of funcArgs array in bytes
     size_t funcArgsLen;
 } ThreadData;
+
+void callThreadFunc(ThreadData* thread)
+{
+    callFunc(thread->funcArgsLen, thread->funcAddr, thread->funcArgs);
+}
 
 void deallocThreadData(ThreadData* thread)
 {
@@ -119,8 +124,9 @@ void addThreadData(size_t argBytes, void* funcAddr, ...)
     // Test
     // void (*castedFuncPtr)(uint8_t) = (void (*)(uint8_t))funcAddr;
     // castedFuncPtr(funcArgs[0]);
-    void (*castedFuncPtr)(uint8_t, uint8_t, uint8_t) = (void (*)(uint8_t, uint8_t, uint8_t))funcAddr;
-    castedFuncPtr(funcArgs[0], funcArgs[1], funcArgs[2]);
+    // void (*castedFuncPtr)(uint8_t, uint8_t, uint8_t) = (void (*)(uint8_t, uint8_t, uint8_t))funcAddr;
+    // castedFuncPtr(funcArgs[0], funcArgs[1], funcArgs[2]);
+    callThreadFunc(newThread);
 }
 
 // Example function. Hailstone sequence
@@ -141,25 +147,6 @@ void example_func(uint8_t start)
     }
 }
 
-void average(uint32_t count, ...)
-{
-    double total = 0;
-    uint32_t i = 0;
-    uint8_t cur;
-    printf("Addr of count: %u\n", &count);
-    printf("Addr of calc : %u\n", (uint8_t*)(&count) + sizeof(count));
-    uint8_t* vargArgStart = (uint8_t*)(&count) + sizeof(count);
-    for (i = 0; i < count; i++)
-    {
-        printf("  i, count: %u, %u\n", i, count);
-        cur = *vargArgStart;
-        total += cur;
-        printf("  cur: %u\n", cur);
-        vargArgStart = vargArgStart + 1;
-    }
-    printf("Average: %f\n", total / count);
-}
-
 void average_novararg(uint8_t one, uint8_t two, uint8_t three)
 {
     printf("One    : %u\n", one);
@@ -173,11 +160,6 @@ void average_novararg(uint8_t one, uint8_t two, uint8_t three)
 int main(int argc, char** argv)
 {
     initThreadManager();
-    // testCallFunc();
-    // uint8_t* args = (uint8_t*)malloc(sizeof(uint8_t));
-    // args[0] = 10;
-    // newProc(1, &example_func, args);
-    // free(args);
 
     uint8_t* args = (uint8_t*)malloc(sizeof(uint8_t) * 3);
     args[0] = 10;
@@ -185,7 +167,7 @@ int main(int argc, char** argv)
     args[2] = 30;
     newProc(3, &average_novararg, args);
     free(args);
-    // addThreadData(1, &example_func, 10);
+
     takedownThreadManager();
     return 0;
 }
