@@ -19,27 +19,56 @@ void hit()
     printf("Hit\n");
 }
 
-extern void newProc(size_t argBytes, void* funcAddr, uint8_t* args);
-extern void callFunc(size_t argBytes, void* funcAddr, uint8_t* stackPtr);
-
 typedef struct
 {
     // Address of function to exec
     void* funcAddr;
+    // Current position in function (0 if start of function)
+    // Will be the value that eip needs to be to continue execution
+    void* curFuncAddr;
     // Number of bytes that make up arguments. Probably multiple of 4
-    size_t funcArgsLen;
+    uint32_t funcArgsLen;
     // Pointer to bottom of allocated stack (that grows DOWNWARD). That is,
     // this is a pointer to the highest address valid in the stack
     uint8_t* t_StackBot;
+    // This is a pointer to the current value of the stack as should be used
+    // for execution. That is, after returning to this thread from being
+    // yielded away from it, set esp to this value
+    uint8_t* t_StackCur;
     // Pointer to the beginning of the memory area allocated for the stack.
     // This is what was originally returned by mmap, and what should be used
     // with munmap
     uint8_t* t_StackRaw;
+    // ebp of thread, other portion of saving stack information. 0 if un-init
+    uint8_t* t_ebp;
+    // Whether this thread has finished execution or not. Non-zero if still
+    // valid, 0 if the thread is finished or the thread has not started yet.
+    // That is to say, the thread is finished if curFuncAddr is non-zero and
+    // stillValid is 0, and the thread is still valid if stillValid != 0 OR
+    // curFuncAddr == 0
+    uint8_t stillValid;
 } ThreadData;
+
+void printThreadData(ThreadData* curThread)
+{
+    printf("Print Thread Data:\n");
+    printf("    ThreadData* curThread: %X\n", curThread);
+    printf("    funcAddr             : %X\n", curThread->funcAddr);
+    printf("    curFuncAddr          : %X\n", curThread->curFuncAddr);
+    printf("    funcArgsLen          : %u\n", curThread->funcArgsLen);
+    printf("    t_StackBot           : %X\n", curThread->t_StackBot);
+    printf("    t_StackCur           : %X\n", curThread->t_StackCur);
+    printf("    t_StackRaw           : %X\n", curThread->t_StackRaw);
+    printf("    stillValid           : %u\n", curThread->stillValid);
+}
+
+extern void newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
+extern void callFunc(uint32_t argBytes, void* funcAddr, uint8_t* stackPtr, ThreadData* curThread);
+extern void yield(uint32_t status);
 
 void callThreadFunc(ThreadData* thread)
 {
-    callFunc(thread->funcArgsLen, thread->funcAddr, thread->t_StackBot);
+    callFunc(thread->funcArgsLen, thread->funcAddr, thread->t_StackBot, thread);
 }
 
 void deallocThreadData(ThreadData* thread)
@@ -89,12 +118,19 @@ void takedownThreadManager()
     free(g_threadManager);
 }
 
-void addThreadData(size_t argBytes, void* funcAddr, ...)
+void addThreadData(uint32_t argBytes, void* funcAddr, ...)
 {
     // Alloc new ThreadData
     ThreadData* newThread = (ThreadData*)malloc(sizeof(ThreadData));
     // Init the address of the function this green thread manages
     newThread->funcAddr = funcAddr;
+    // Init the address of the function this green thread manages
+    newThread->curFuncAddr = 0;
+    // Thread starts off 0, meaning curFuncAddr should also be checked
+    // to see if the thread simply hasn't started yet
+    newThread->stillValid = 0;
+    // Thread starts off with unitialized stack frame pointer
+    newThread->t_ebp = 0;
     // Init the length in bytes of the function arguments in total
     newThread->funcArgsLen = argBytes;
     // mmap thread stack
@@ -102,6 +138,8 @@ void addThreadData(size_t argBytes, void* funcAddr, ...)
                                            PROT_READ|PROT_WRITE,
                                            MAP_PRIVATE|MAP_ANONYMOUS,
                                            -1, 0);
+    // StackCur starts as a meaningless pointer
+    newThread->t_StackCur = 0;
     // Make t_StackBot point to "bottom" of stack (highest address)
     newThread->t_StackBot = newThread->t_StackRaw + THREAD_STACK_SIZE - 1;
     // Get the address on the stack that the arguments start at
@@ -136,11 +174,20 @@ void addThreadData(size_t argBytes, void* funcAddr, ...)
 void execAllManagedFuncs()
 {
     uint32_t i = 0;
+    uint8_t stillValid = 0;
     for (i = 0; i < g_threadManager->threadArrIndex; i++)
     {
         ThreadData* curThread = g_threadManager->threadArr[i];
-        callFunc(curThread->funcArgsLen, curThread->funcAddr,
-            curThread->t_StackBot);
+        if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
+        {
+            stillValid = 1;
+            callThreadFunc(curThread);
+        }
+        if (i + 1 >= g_threadManager->threadArrIndex && stillValid != 0)
+        {
+            i = -1;
+            stillValid = 0;
+        }
     }
 }
 
@@ -164,13 +211,14 @@ void example_func(uint8_t start)
 
 void average_novararg(uint8_t one, uint8_t two, uint8_t three)
 {
-    printf("One    : %u\n", one);
-    printf("Two    : %u\n", two);
-    printf("Three  : %u\n", three);
+    printf("One    : %3u, address: %X\n", one, &one);
+    printf("Two    : %3u, address: %X\n", two, &two);
+    printf("Three  : %3u, address: %X\n", three, &three);
+    yield(1);
     printf("Average: %f\n", (one + two + three) / 3.0);
 }
 
-// newProc(size_t argBytes, void* funcAddr, uint8_t* args);
+// newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
 
 int main(int argc, char** argv)
 {
