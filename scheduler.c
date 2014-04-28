@@ -59,6 +59,7 @@ void printThreadData(ThreadData* curThread)
     printf("    t_StackBot           : %X\n", curThread->t_StackBot);
     printf("    t_StackCur           : %X\n", curThread->t_StackCur);
     printf("    t_StackRaw           : %X\n", curThread->t_StackRaw);
+    printf("    t_ebp                : %X\n", curThread->t_ebp);
     printf("    stillValid           : %u\n", curThread->stillValid);
 }
 
@@ -161,7 +162,8 @@ void addThreadData(uint32_t argBytes, void* funcAddr, ...)
         // Allocate more space for thread manager
         g_threadManager->threadArr = (ThreadData**)realloc(
             g_threadManager->threadArr,
-            g_threadManager->threadArrLen * THREAD_DATA_ARR_MUL_INCREASE);
+            sizeof(ThreadData*) * g_threadManager->threadArrLen *
+                THREAD_DATA_ARR_MUL_INCREASE);
         g_threadManager->threadArrLen =
             g_threadManager->threadArrLen * THREAD_DATA_ARR_MUL_INCREASE;
         // Place pointer into ThreadData* array
@@ -218,6 +220,28 @@ void average_novararg(uint8_t one, uint8_t two, uint8_t three)
     printf("Average: %f\n", (one + two + three) / 3.0);
 }
 
+void hailstone(uint32_t start)
+{
+    uint32_t iter = start;
+    uint32_t count = 1;
+    printf("Start at %u\n", start);
+    while (iter > 1)
+    {
+        if (iter % 2 == 0)
+        {
+            iter /= 2;
+            count++;
+        }
+        else
+        {
+            iter = iter * 3 + 1;
+            count++;
+        }
+        yield(1);
+    }
+    printf("%5u takes %5u (%X) steps.\n", start, count, &count);
+}
+
 // newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
 
 int main(int argc, char** argv)
@@ -237,6 +261,21 @@ int main(int argc, char** argv)
     args[1] = 40;
     args[2] = 50;
     newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
+    free(args);
+
+    args = (uint32_t*)malloc(sizeof(uint32_t));
+    args[0] = 10;
+    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
+    args[0] = 15;
+    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
+    args[0] = 20;
+    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
+    args[0] = 25;
+    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
+    args[0] = 30;
+    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
+    args[0] = 35;
+    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
     free(args);
 
     execAllManagedFuncs();
