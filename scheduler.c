@@ -3,9 +3,11 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdarg.h>
+#include <sys/mman.h>
 
 #define THREAD_DATA_ARR_START_LEN 4
 #define THREAD_DATA_ARR_MUL_INCREASE 2
+#define THREAD_STACK_SIZE (4096*64)
 
 void hitASM()
 {
@@ -18,27 +20,32 @@ void hit()
 }
 
 extern void newProc(size_t argBytes, void* funcAddr, uint8_t* args);
-extern void callFunc(size_t argBytes, void* funcAddr, uint8_t* args);
+extern void callFunc(size_t argBytes, void* funcAddr, uint8_t* stackPtr);
 
 typedef struct
 {
     // Address of function to exec
     void* funcAddr;
-    // Bytes of arguments to function
-    uint8_t* funcArgs;
-    // Length of funcArgs array in bytes
+    // Number of bytes that make up arguments. Probably multiple of 4
     size_t funcArgsLen;
+    // Pointer to bottom of allocated stack (that grows DOWNWARD). That is,
+    // this is a pointer to the highest address valid in the stack
+    uint8_t* t_StackBot;
+    // Pointer to the beginning of the memory area allocated for the stack.
+    // This is what was originally returned by mmap, and what should be used
+    // with munmap
+    uint8_t* t_StackRaw;
 } ThreadData;
 
 void callThreadFunc(ThreadData* thread)
 {
-    callFunc(thread->funcArgsLen, thread->funcAddr, thread->funcArgs);
+    callFunc(thread->funcArgsLen, thread->funcAddr, thread->t_StackBot);
 }
 
 void deallocThreadData(ThreadData* thread)
 {
-    // Dealloc memory for function arguments
-    free(thread->funcArgs);
+    // Unmap memory allocated for thread stack
+    munmap(thread->t_StackRaw, THREAD_STACK_SIZE);
     // Dealloc memory for struct
     free(thread);
 }
@@ -90,14 +97,17 @@ void addThreadData(size_t argBytes, void* funcAddr, ...)
     newThread->funcAddr = funcAddr;
     // Init the length in bytes of the function arguments in total
     newThread->funcArgsLen = argBytes;
+    // mmap thread stack
+    newThread->t_StackRaw = (uint8_t*)mmap(NULL, THREAD_STACK_SIZE,
+                                           PROT_READ|PROT_WRITE,
+                                           MAP_PRIVATE|MAP_ANONYMOUS,
+                                           -1, 0);
+    // Make t_StackBot point to "bottom" of stack (highest address)
+    newThread->t_StackBot = newThread->t_StackRaw + THREAD_STACK_SIZE - 1;
     // Get the address on the stack that the arguments start at
     uint8_t* vargArgStart = (uint8_t*)(&funcAddr) + sizeof(funcAddr);
-    // Allocate space for copying the function arguments off the stack
-    uint8_t* funcArgs = (uint8_t*)malloc(sizeof(uint8_t) * argBytes);
-    // Copy the function arguments into the ThreadData-managed array
-    memcpy(funcArgs, vargArgStart, argBytes);
-    // Give the ThreadData object ownership of the arguments pointer
-    newThread->funcArgs = funcArgs;
+    // Copy function arguments into bottom of stack (highest addresses)
+    memcpy(newThread->t_StackBot - argBytes, vargArgStart, argBytes);
     // Put newThread into global thread manager, allocating space for the
     // pointer if necessary
     if (g_threadManager->threadArrIndex < g_threadManager->threadArrLen)
@@ -130,7 +140,7 @@ void execAllManagedFuncs()
     {
         ThreadData* curThread = g_threadManager->threadArr[i];
         callFunc(curThread->funcArgsLen, curThread->funcAddr,
-            curThread->funcArgs);
+            curThread->t_StackBot);
     }
 }
 
@@ -166,19 +176,19 @@ int main(int argc, char** argv)
 {
     initThreadManager();
 
-    uint8_t* args = (uint8_t*)malloc(sizeof(uint8_t) * 3);
+    uint32_t* args = (uint32_t*)malloc(sizeof(uint32_t) * 3);
     args[0] = 10;
     args[1] = 20;
     args[2] = 30;
-    newProc(3, &average_novararg, args);
+    newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
     args[0] = 20;
     args[1] = 30;
     args[2] = 40;
-    newProc(3, &average_novararg, args);
+    newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
     args[0] = 30;
     args[1] = 40;
     args[2] = 50;
-    newProc(3, &average_novararg, args);
+    newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
     free(args);
 
     execAllManagedFuncs();
