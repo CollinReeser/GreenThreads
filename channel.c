@@ -32,7 +32,6 @@ uint32_t write(Channel* chan, uint32_t numElems, ...)
     {
         curIndex = index + numValid - length;
     }
-    printf("curIndex: %u\n", curIndex);
     uint32_t i;
     va_list ap;
     va_start(ap, numElems);
