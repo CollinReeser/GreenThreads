@@ -242,6 +242,26 @@ void hailstone(uint32_t start)
     printf("%5u takes %5u (%X) steps.\n", start, count, &count);
 }
 
+int fib(int x)
+{
+    if (x == 0)
+    {
+        return 0;
+    }
+    if (x == 1)
+    {
+        return 1;
+    }
+    yield(1);
+    return fib(x-1)+fib(x-2);
+}
+
+void printFib(int x)
+{
+    int result = fib(x);
+    printf("The %uth fibonacci number is %u\n", x, result);
+}
+
 // newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
 
 int main(int argc, char** argv)
@@ -276,6 +296,13 @@ int main(int argc, char** argv)
     newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
     args[0] = 35;
     newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
+
+    args[0] = 10;
+    newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
+    args[0] = 20;
+    newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
+    args[0] = 30;
+    newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
     free(args);
 
     execAllManagedFuncs();

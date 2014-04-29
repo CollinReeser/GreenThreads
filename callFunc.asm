@@ -23,12 +23,12 @@ yield:
     push    ebp
     mov     ebp, esp
 
+    ; Get curThread pointer
+    mov     edx, dword [currentthread]
     ; Get return address
     mov     eax, [ebp+4]
     ; Get yield status value
     mov     ecx, [ebp+8]
-    ; Get curThread pointer
-    mov     edx, dword [currentthread]
     ; Set validity of thread
     mov     [edx + 28], ecx ; ThreadData->stillValid
     ; Set return address to continue execution
