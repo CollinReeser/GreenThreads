@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <sys/mman.h>
+#include "channel.h"
 
 #define THREAD_DATA_ARR_START_LEN 4
 #define THREAD_DATA_ARR_MUL_INCREASE 2
@@ -262,6 +263,48 @@ void printFib(int x)
     printf("The %uth fibonacci number is %u\n", x, result);
 }
 
+void numProducer(uint32_t num, uint32_t willProduce, Channel* chan)
+{
+    uint32_t multiplier = 1;
+    uint32_t i = 0;
+    while (i < willProduce)
+    {
+        uint32_t written = write(chan, 1, num * multiplier);
+        if (written == 1)
+        {
+            printf("Produced value %5u on channel %X\n", num * multiplier, chan);
+            multiplier++;
+            i++;
+        }
+        else
+        {
+            printf("Value not yet read on channel %X\n", chan);
+        }
+        yield(1);
+    }
+}
+
+void numConsumer(uint32_t expects, Channel* chan)
+{
+    uint32_t numRead = 0;
+    uint32_t value;
+    uint32_t success = 0;
+    while (numRead < expects)
+    {
+        yield(1);
+        success = read_1(chan, &value);
+        if (success)
+        {
+            numRead++;
+            printf("Got value %5u from channel %X\n", value, chan);
+        }
+        else
+        {
+            printf("No value available on channel %X\n", chan);
+        }
+    }
+}
+
 // newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
 
 int main(int argc, char** argv)
@@ -305,8 +348,42 @@ int main(int argc, char** argv)
     newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
     free(args);
 
+    Channel* chan_1 = createChannel(1);
+    Channel* chan_2 = createChannel(1);
+    Channel* chan_3 = createChannel(1);
+    args = (uint32_t*)malloc(sizeof(uint32_t) * 3);
+    args[0] = 10;
+    args[1] = 5;
+    args[2] = (uint32_t)chan_1;
+    newProc(sizeof(uint32_t) * 3, &numProducer, (uint8_t*)args);
+    args[0] = 11;
+    args[1] = 5;
+    args[2] = (uint32_t)chan_2;
+    newProc(sizeof(uint32_t) * 3, &numProducer, (uint8_t*)args);
+    args[0] = 13;
+    args[1] = 5;
+    args[2] = (uint32_t)chan_3;
+    newProc(sizeof(uint32_t) * 3, &numProducer, (uint8_t*)args);
+    free(args);
+
+    args = (uint32_t*)malloc(sizeof(uint32_t) * 2);
+    args[0] = 5;
+    args[1] = (uint32_t)chan_1;
+    newProc(sizeof(uint32_t) * 2, &numConsumer, (uint8_t*)args);
+    args[0] = 5;
+    args[1] = (uint32_t)chan_2;
+    newProc(sizeof(uint32_t) * 2, &numConsumer, (uint8_t*)args);
+    args[0] = 5;
+    args[1] = (uint32_t)chan_3;
+    newProc(sizeof(uint32_t) * 2, &numConsumer, (uint8_t*)args);
+    free(args);
+
     execAllManagedFuncs();
 
     takedownThreadManager();
+    destroyChannel(chan_1);
+    destroyChannel(chan_2);
+    destroyChannel(chan_3);
+
     return 0;
 }
