@@ -5,10 +5,13 @@
 #include <stdarg.h>
 #include <sys/mman.h>
 #include "channel.h"
+#include "scheduler.h"
 
 #define THREAD_DATA_ARR_START_LEN 4
 #define THREAD_DATA_ARR_MUL_INCREASE 2
 #define THREAD_STACK_SIZE (4096*64)
+
+GlobalThreadMem* g_threadManager = NULL;
 
 void hitASM()
 {
@@ -19,36 +22,6 @@ void hit()
 {
     printf("Hit\n");
 }
-
-typedef struct
-{
-    // Address of function to exec
-    void* funcAddr;
-    // Current position in function (0 if start of function)
-    // Will be the value that eip needs to be to continue execution
-    void* curFuncAddr;
-    // Number of bytes that make up arguments. Probably multiple of 4
-    uint32_t funcArgsLen;
-    // Pointer to bottom of allocated stack (that grows DOWNWARD). That is,
-    // this is a pointer to the highest address valid in the stack
-    uint8_t* t_StackBot;
-    // This is a pointer to the current value of the stack as should be used
-    // for execution. That is, after returning to this thread from being
-    // yielded away from it, set esp to this value
-    uint8_t* t_StackCur;
-    // Pointer to the beginning of the memory area allocated for the stack.
-    // This is what was originally returned by mmap, and what should be used
-    // with munmap
-    uint8_t* t_StackRaw;
-    // ebp of thread, other portion of saving stack information. 0 if un-init
-    uint8_t* t_ebp;
-    // Whether this thread has finished execution or not. Non-zero if still
-    // valid, 0 if the thread is finished or the thread has not started yet.
-    // That is to say, the thread is finished if curFuncAddr is non-zero and
-    // stillValid is 0, and the thread is still valid if stillValid != 0 OR
-    // curFuncAddr == 0
-    uint8_t stillValid;
-} ThreadData;
 
 void printThreadData(ThreadData* curThread)
 {
@@ -64,10 +37,6 @@ void printThreadData(ThreadData* curThread)
     printf("    stillValid           : %u\n", curThread->stillValid);
 }
 
-extern void newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
-extern void callFunc(uint32_t argBytes, void* funcAddr, uint8_t* stackPtr, ThreadData* curThread);
-extern void yield(uint32_t status);
-
 void callThreadFunc(ThreadData* thread)
 {
     callFunc(thread->funcArgsLen, thread->funcAddr, thread->t_StackBot, thread);
@@ -80,18 +49,6 @@ void deallocThreadData(ThreadData* thread)
     // Dealloc memory for struct
     free(thread);
 }
-
-typedef struct
-{
-    // Array of managed green threads
-    ThreadData** threadArr;
-    // Length of managed green threads array
-    uint32_t threadArrLen;
-    // Index one past last valid ThreadData in threadArr
-    uint32_t threadArrIndex;
-} GlobalThreadMem;
-
-GlobalThreadMem* g_threadManager = NULL;
 
 void initThreadManager()
 {
@@ -192,198 +149,4 @@ void execAllManagedFuncs()
             stillValid = 0;
         }
     }
-}
-
-// Example function. Hailstone sequence
-void example_func(uint8_t start)
-{
-    printf("Start is: [%d]\n", start);
-    while (start > 1)
-    {
-        if (start % 2 == 0)
-        {
-            start = start / 2;
-        }
-        else
-        {
-            start = start * 3 + 1;
-        }
-        printf("  Val: %u\n", start);
-    }
-}
-
-void average_novararg(uint8_t one, uint8_t two, uint8_t three)
-{
-    printf("One    : %3u, address: %X\n", one, &one);
-    printf("Two    : %3u, address: %X\n", two, &two);
-    printf("Three  : %3u, address: %X\n", three, &three);
-    yield(1);
-    printf("Average: %f\n", (one + two + three) / 3.0);
-}
-
-void hailstone(uint32_t start)
-{
-    uint32_t iter = start;
-    uint32_t count = 1;
-    printf("Start at %u\n", start);
-    while (iter > 1)
-    {
-        if (iter % 2 == 0)
-        {
-            iter /= 2;
-            count++;
-        }
-        else
-        {
-            iter = iter * 3 + 1;
-            count++;
-        }
-        yield(1);
-    }
-    printf("%5u takes %5u (%X) steps.\n", start, count, &count);
-}
-
-int fib(int x)
-{
-    if (x == 0)
-    {
-        return 0;
-    }
-    if (x == 1)
-    {
-        return 1;
-    }
-    yield(1);
-    return fib(x-1)+fib(x-2);
-}
-
-void printFib(int x)
-{
-    int result = fib(x);
-    printf("The %uth fibonacci number is %u\n", x, result);
-}
-
-void numProducer(uint32_t num, uint32_t willProduce, Channel* chan)
-{
-    uint32_t multiplier = 1;
-    uint32_t i = 0;
-    while (i < willProduce)
-    {
-        uint32_t written = write(chan, 1, num * multiplier);
-        if (written == 1)
-        {
-            printf("Produced value %5u on channel %X\n", num * multiplier, chan);
-            multiplier++;
-            i++;
-        }
-        else
-        {
-            printf("Value not yet read on channel %X\n", chan);
-        }
-        yield(1);
-    }
-}
-
-void numConsumer(uint32_t expects, Channel* chan)
-{
-    uint32_t numRead = 0;
-    uint32_t value;
-    uint32_t success = 0;
-    while (numRead < expects)
-    {
-        yield(1);
-        success = read_1(chan, &value);
-        if (success)
-        {
-            numRead++;
-            printf("Got value %5u from channel %X\n", value, chan);
-        }
-        else
-        {
-            printf("No value available on channel %X\n", chan);
-        }
-    }
-}
-
-// newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
-
-int main(int argc, char** argv)
-{
-    initThreadManager();
-
-    uint32_t* args = (uint32_t*)malloc(sizeof(uint32_t) * 3);
-    args[0] = 10;
-    args[1] = 20;
-    args[2] = 30;
-    newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
-    args[0] = 20;
-    args[1] = 30;
-    args[2] = 40;
-    newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
-    args[0] = 30;
-    args[1] = 40;
-    args[2] = 50;
-    newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
-    free(args);
-
-    args = (uint32_t*)malloc(sizeof(uint32_t));
-    args[0] = 10;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 15;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 20;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 25;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 30;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 35;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-
-    args[0] = 10;
-    newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
-    args[0] = 20;
-    newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
-    args[0] = 30;
-    newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
-    free(args);
-
-    Channel* chan_1 = createChannel(1);
-    Channel* chan_2 = createChannel(1);
-    Channel* chan_3 = createChannel(1);
-    args = (uint32_t*)malloc(sizeof(uint32_t) * 3);
-    args[0] = 10;
-    args[1] = 5;
-    args[2] = (uint32_t)chan_1;
-    newProc(sizeof(uint32_t) * 3, &numProducer, (uint8_t*)args);
-    args[0] = 11;
-    args[1] = 5;
-    args[2] = (uint32_t)chan_2;
-    newProc(sizeof(uint32_t) * 3, &numProducer, (uint8_t*)args);
-    args[0] = 13;
-    args[1] = 5;
-    args[2] = (uint32_t)chan_3;
-    newProc(sizeof(uint32_t) * 3, &numProducer, (uint8_t*)args);
-    free(args);
-
-    args = (uint32_t*)malloc(sizeof(uint32_t) * 2);
-    args[0] = 5;
-    args[1] = (uint32_t)chan_1;
-    newProc(sizeof(uint32_t) * 2, &numConsumer, (uint8_t*)args);
-    args[0] = 5;
-    args[1] = (uint32_t)chan_2;
-    newProc(sizeof(uint32_t) * 2, &numConsumer, (uint8_t*)args);
-    args[0] = 5;
-    args[1] = (uint32_t)chan_3;
-    newProc(sizeof(uint32_t) * 2, &numConsumer, (uint8_t*)args);
-    free(args);
-
-    execAllManagedFuncs();
-
-    takedownThreadManager();
-    destroyChannel(chan_1);
-    destroyChannel(chan_2);
-    destroyChannel(chan_3);
-
-    return 0;
 }
