@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include <sys/mman.h>
-#include "channel.h"
 #include "scheduler.h"
 
 #define THREAD_DATA_ARR_START_LEN 4
@@ -77,7 +76,7 @@ void takedownThreadManager()
     free(g_threadManager);
 }
 
-void addThreadData(uint32_t argBytes, void* funcAddr, ...)
+void newProc(uint32_t argBytes, void* funcAddr, ...)
 {
     // Alloc new ThreadData
     ThreadData* newThread = (ThreadData*)malloc(sizeof(ThreadData));
