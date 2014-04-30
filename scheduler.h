@@ -1,13 +1,7 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
-#include <stdarg.h>
-#include <sys/mman.h>
-#include "channel.h"
 
 #define THREAD_DATA_ARR_START_LEN 4
 #define THREAD_DATA_ARR_MUL_INCREASE 2
@@ -43,9 +37,10 @@ typedef struct
     uint8_t stillValid;
 } ThreadData;
 
-extern void newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
 extern void callFunc(uint32_t argBytes, void* funcAddr, uint8_t* stackPtr, ThreadData* curThread);
 extern void yield(uint32_t status);
+
+void newProc(uint32_t argBytes, void* funcAddr, ...);
 
 void printThreadData(ThreadData* curThread);
 

@@ -119,18 +119,14 @@ void spawnInner(int count, int endVal)
     printf("Entered spawnInner with count: %u :: endVal: %u\n", count, endVal);
     if (count < endVal)
     {
-        uint32_t* args = (uint32_t*)malloc(sizeof(uint32_t) * 2);
         int i;
         for (i = 0; i <= count; i++)
         {
-            args[0] = count + 1;
-            args[1] = endVal;
-            newProc(sizeof(uint32_t) * 2, &spawnInner, (uint8_t*)args);
+            newProc(sizeof(uint32_t) * 2, &spawnInner, count + 1, endVal);
             printf("  Created new thread. count: %u :: endVal: %u\n", count + 1, endVal);
             printf("    Yielding...\n");
             yield(1);
         }
-        free(args);
     }
 }
 
@@ -146,75 +142,32 @@ int main(int argc, char** argv)
 {
     initThreadManager();
 
-    uint32_t* args = (uint32_t*)malloc(sizeof(uint32_t) * 3);
-    args[0] = 10;
-    args[1] = 20;
-    args[2] = 30;
-    newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
-    args[0] = 20;
-    args[1] = 30;
-    args[2] = 40;
-    newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
-    args[0] = 30;
-    args[1] = 40;
-    args[2] = 50;
-    newProc(sizeof(uint32_t) * 3, &average_novararg, (uint8_t*)args);
-    free(args);
+    newProc(sizeof(uint32_t) * 3, &average_novararg, 10, 20, 30);
+    newProc(sizeof(uint32_t) * 3, &average_novararg, 20, 30, 40);
+    newProc(sizeof(uint32_t) * 3, &average_novararg, 30, 40, 50);
 
-    args = (uint32_t*)malloc(sizeof(uint32_t));
-    args[0] = 10;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 15;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 20;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 25;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 30;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
-    args[0] = 35;
-    newProc(sizeof(uint32_t) * 1, &hailstone, (uint8_t*)args);
+    newProc(sizeof(uint32_t) * 1, &hailstone, 10);
+    newProc(sizeof(uint32_t) * 1, &hailstone, 15);
+    newProc(sizeof(uint32_t) * 1, &hailstone, 20);
+    newProc(sizeof(uint32_t) * 1, &hailstone, 25);
+    newProc(sizeof(uint32_t) * 1, &hailstone, 30);
+    newProc(sizeof(uint32_t) * 1, &hailstone, 35);
 
-    args[0] = 10;
-    newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
-    args[0] = 20;
-    newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
-    args[0] = 30;
-    newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
-
-    args[0] = 3;
-    newProc(sizeof(uint32_t) * 1, &spawnMany, (uint8_t*)args);
-    free(args);
+    newProc(sizeof(uint32_t) * 1, &printFib, 10);
+    newProc(sizeof(uint32_t) * 1, &printFib, 20);
+    newProc(sizeof(uint32_t) * 1, &printFib, 30);
 
     Channel* chan_1 = createChannel(1);
     Channel* chan_2 = createChannel(1);
     Channel* chan_3 = createChannel(1);
-    args = (uint32_t*)malloc(sizeof(uint32_t) * 3);
-    args[0] = 10;
-    args[1] = 5;
-    args[2] = (uint32_t)chan_1;
-    newProc(sizeof(uint32_t) * 3, &numProducer, (uint8_t*)args);
-    args[0] = 11;
-    args[1] = 5;
-    args[2] = (uint32_t)chan_2;
-    newProc(sizeof(uint32_t) * 3, &numProducer, (uint8_t*)args);
-    args[0] = 13;
-    args[1] = 5;
-    args[2] = (uint32_t)chan_3;
-    newProc(sizeof(uint32_t) * 3, &numProducer, (uint8_t*)args);
-    free(args);
+    newProc(sizeof(uint32_t) * 3, &numProducer, 10, 5, chan_1);
+    newProc(sizeof(uint32_t) * 3, &numProducer, 11, 5, chan_2);
+    newProc(sizeof(uint32_t) * 3, &numProducer, 13, 5, chan_3);
+    newProc(sizeof(uint32_t) * 2, &numConsumer, 5, chan_1);
+    newProc(sizeof(uint32_t) * 2, &numConsumer, 5, chan_2);
+    newProc(sizeof(uint32_t) * 2, &numConsumer, 5, chan_3);
 
-    args = (uint32_t*)malloc(sizeof(uint32_t) * 2);
-    args[0] = 5;
-    args[1] = (uint32_t)chan_1;
-    newProc(sizeof(uint32_t) * 2, &numConsumer, (uint8_t*)args);
-    args[0] = 5;
-    args[1] = (uint32_t)chan_2;
-    newProc(sizeof(uint32_t) * 2, &numConsumer, (uint8_t*)args);
-    args[0] = 5;
-    args[1] = (uint32_t)chan_3;
-    newProc(sizeof(uint32_t) * 2, &numConsumer, (uint8_t*)args);
-    free(args);
+    newProc(sizeof(uint32_t) * 1, &spawnMany, 3);
 
     execAllManagedFuncs();
 
