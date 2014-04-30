@@ -1,10 +1,7 @@
 #ifndef CHANNEL_H
 #define CHANNEL_H
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <stdint.h>
-#include <stdarg.h>
 
 typedef struct
 {
