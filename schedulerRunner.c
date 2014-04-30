@@ -114,6 +114,32 @@ void numConsumer(uint32_t expects, Channel* chan)
     }
 }
 
+void spawnInner(int count, int endVal)
+{
+    printf("Entered spawnInner with count: %u :: endVal: %u\n", count, endVal);
+    if (count < endVal)
+    {
+        uint32_t* args = (uint32_t*)malloc(sizeof(uint32_t) * 2);
+        int i;
+        for (i = 0; i <= count; i++)
+        {
+            args[0] = count + 1;
+            args[1] = endVal;
+            newProc(sizeof(uint32_t) * 2, &spawnInner, (uint8_t*)args);
+            printf("  Created new thread. count: %u :: endVal: %u\n", count + 1, endVal);
+            printf("    Yielding...\n");
+            yield(1);
+        }
+        free(args);
+    }
+}
+
+void spawnMany(int endVal)
+{
+    printf("Exec-ing spawnInner with endVal: %u\n", endVal);
+    spawnInner(0, endVal);
+}
+
 // newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
 
 int main(int argc, char** argv)
@@ -155,6 +181,9 @@ int main(int argc, char** argv)
     newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
     args[0] = 30;
     newProc(sizeof(uint32_t) * 1, &printFib, (uint8_t*)args);
+
+    args[0] = 3;
+    newProc(sizeof(uint32_t) * 1, &spawnMany, (uint8_t*)args);
     free(args);
 
     Channel* chan_1 = createChannel(1);
