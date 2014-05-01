@@ -11,13 +11,20 @@ Channel* createChannel(size_t length)
     chan->length = length;
     chan->index = 0;
     chan->numValid = 0;
+    chan->isOpen = 1;
     return chan;
 }
 
 // Returns number of elements (not bytes) that were successfully written to the
 // buffer
-uint32_t write(Channel* chan, uint32_t numElems, ...)
+uint32_t writeChannel(Channel* chan, uint32_t numElems, ...)
 {
+    // Check if the channel is open, and if not, don't allow writing to it
+    if (!chan->isOpen)
+    {
+        // 0 indicates failure to write anything
+        return 0;
+    }
     uint32_t* buffer = chan->buffer;
     uint32_t length = chan->length;
     uint32_t index = chan->index;
@@ -60,7 +67,7 @@ uint32_t write(Channel* chan, uint32_t numElems, ...)
 
 // Places read value into location value, returns non-zero for success,
 // zero for failure
-uint32_t read_1(Channel* chan, uint32_t* value)
+uint32_t readChannel_1(Channel* chan, uint32_t* value)
 {
     uint32_t* buffer = chan->buffer;
     uint32_t length = chan->length;
@@ -82,6 +89,26 @@ uint32_t read_1(Channel* chan, uint32_t* value)
     chan->index = index;
     chan->numValid = numValid;
     return 1;
+}
+
+void closeChannel(Channel* chan)
+{
+    // If we decide later we want to do something about double closing a
+    // channel
+    if (!chan->isOpen)
+    {
+
+    }
+    chan->isOpen = 0;
+}
+
+uint32_t isChannelOpen(Channel* chan)
+{
+    if (chan->isOpen)
+    {
+        return 1;
+    }
+    return 0;
 }
 
 void destroyChannel(Channel* chan)

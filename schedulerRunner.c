@@ -78,7 +78,7 @@ void numProducer(uint32_t num, uint32_t willProduce, Channel* chan)
     uint32_t i = 0;
     while (i < willProduce)
     {
-        uint32_t written = write(chan, 1, num * multiplier);
+        uint32_t written = writeChannel(chan, 1, num * multiplier);
         if (written == 1)
         {
             printf("Produced value %5u on channel %X\n", num * multiplier, chan);
@@ -91,27 +91,27 @@ void numProducer(uint32_t num, uint32_t willProduce, Channel* chan)
         }
         yield(1);
     }
+    closeChannel(chan);
 }
 
-void numConsumer(uint32_t expects, Channel* chan)
+void numConsumer(Channel* chan)
 {
-    uint32_t numRead = 0;
     uint32_t value;
     uint32_t success = 0;
-    while (numRead < expects)
+    while (isChannelOpen(chan))
     {
-        yield(1);
-        success = read_1(chan, &value);
+        success = readChannel_1(chan, &value);
         if (success)
         {
-            numRead++;
             printf("Got value %5u from channel %X\n", value, chan);
         }
         else
         {
             printf("No value available on channel %X\n", chan);
         }
+        yield(1);
     }
+    destroyChannel(chan);
 }
 
 void spawnInner(int count, int endVal)
@@ -138,43 +138,64 @@ void spawnMany(int endVal)
 
 // newProc(uint32_t argBytes, void* funcAddr, uint8_t* args);
 
-int main(int argc, char** argv)
+void threadMain()
 {
-    initThreadManager();
-
+    printf("Instantiating average_novararg\n");
     newProc(sizeof(uint32_t) * 3, &average_novararg, 10, 20, 30);
+    printf("Instantiating average_novararg\n");
     newProc(sizeof(uint32_t) * 3, &average_novararg, 20, 30, 40);
+    printf("Instantiating average_novararg\n");
     newProc(sizeof(uint32_t) * 3, &average_novararg, 30, 40, 50);
 
+    printf("Instantiating hailstone\n");
     newProc(sizeof(uint32_t) * 1, &hailstone, 10);
+    printf("Instantiating hailstone\n");
     newProc(sizeof(uint32_t) * 1, &hailstone, 15);
+    printf("Instantiating hailstone\n");
     newProc(sizeof(uint32_t) * 1, &hailstone, 20);
+    printf("Instantiating hailstone\n");
     newProc(sizeof(uint32_t) * 1, &hailstone, 25);
+    printf("Instantiating hailstone\n");
     newProc(sizeof(uint32_t) * 1, &hailstone, 30);
+    printf("Instantiating hailstone\n");
     newProc(sizeof(uint32_t) * 1, &hailstone, 35);
 
+    printf("Instantiating printFib\n");
     newProc(sizeof(uint32_t) * 1, &printFib, 10);
+    printf("Instantiating printFib\n");
     newProc(sizeof(uint32_t) * 1, &printFib, 20);
+    printf("Instantiating printFib\n");
     newProc(sizeof(uint32_t) * 1, &printFib, 30);
 
     Channel* chan_1 = createChannel(1);
     Channel* chan_2 = createChannel(1);
     Channel* chan_3 = createChannel(1);
+    printf("Instantiating numProducer\n");
     newProc(sizeof(uint32_t) * 3, &numProducer, 10, 5, chan_1);
+    printf("Instantiating numProducer\n");
     newProc(sizeof(uint32_t) * 3, &numProducer, 11, 5, chan_2);
+    printf("Instantiating numProducer\n");
     newProc(sizeof(uint32_t) * 3, &numProducer, 13, 5, chan_3);
-    newProc(sizeof(uint32_t) * 2, &numConsumer, 5, chan_1);
-    newProc(sizeof(uint32_t) * 2, &numConsumer, 5, chan_2);
-    newProc(sizeof(uint32_t) * 2, &numConsumer, 5, chan_3);
+    printf("Instantiating numConsumer\n");
+    newProc(sizeof(uint32_t) * 1, &numConsumer, chan_1);
+    printf("Instantiating numConsumer\n");
+    newProc(sizeof(uint32_t) * 1, &numConsumer, chan_2);
+    printf("Instantiating numConsumer\n");
+    newProc(sizeof(uint32_t) * 1, &numConsumer, chan_3);
 
+    printf("Instantiating spawnMany\n");
     newProc(sizeof(uint32_t) * 1, &spawnMany, 3);
+}
+
+int main(int argc, char** argv)
+{
+    initThreadManager();
+
+    newProc(0, &threadMain);
 
     execAllManagedFuncs();
 
     takedownThreadManager();
-    destroyChannel(chan_1);
-    destroyChannel(chan_2);
-    destroyChannel(chan_3);
 
     return 0;
 }

@@ -13,7 +13,7 @@ void main()
     printf("Wrote %u uints to channel\n", numWritten);
     printChannel(chan);
 
-    read_1(chan, &value);
+    readChannel_1(chan, &value);
     printf("Read value: %u\n", value);
     printChannel(chan);
 
@@ -23,7 +23,7 @@ void main()
     printf("Wrote %u uints to channel\n", numWritten);
     printChannel(chan);
 
-    read_1(chan, &value);
+    readChannel_1(chan, &value);
     printf("Read value: %u\n", value);
     printChannel(chan);
 
@@ -33,7 +33,7 @@ void main()
     printf("Wrote %u uints to channel\n", numWritten);
     printChannel(chan);
 
-    read_1(chan, &value);
+    readChannel_1(chan, &value);
     printf("Read value: %u\n", value);
     printChannel(chan);
 
@@ -43,7 +43,7 @@ void main()
     printf("Wrote %u uints to channel\n", numWritten);
     printChannel(chan);
 
-    read_1(chan, &value);
+    readChannel_1(chan, &value);
     printf("Read value: %u\n", value);
     printChannel(chan);
 
@@ -53,12 +53,12 @@ void main()
     printf("Wrote %u uints to channel\n", numWritten);
     printChannel(chan);
 
-    read_1(chan, &value);
+    readChannel_1(chan, &value);
     printf("Read value: %u\n", value);
     printChannel(chan);
 
     uint32_t success = 0;
-    while (success = read_1(chan, &value))
+    while (success = readChannel_1(chan, &value))
     {
         printf("Read value: %u\n", value);
         printChannel(chan);
