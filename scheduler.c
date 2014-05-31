@@ -6,21 +6,7 @@
 #include <sys/mman.h>
 #include "scheduler.h"
 
-#define THREAD_DATA_ARR_START_LEN 4
-#define THREAD_DATA_ARR_MUL_INCREASE 2
-#define THREAD_STACK_SIZE (4096*64)
-
 GlobalThreadMem* g_threadManager = NULL;
-
-void hitASM()
-{
-    printf("Hit ASM\n");
-}
-
-void hit()
-{
-    printf("Hit\n");
-}
 
 void printThreadData(ThreadData* curThread)
 {
@@ -82,7 +68,9 @@ void newProc(uint32_t argBytes, void* funcAddr, ...)
     ThreadData* newThread = (ThreadData*)malloc(sizeof(ThreadData));
     // Init the address of the function this green thread manages
     newThread->funcAddr = funcAddr;
-    // Init the address of the function this green thread manages
+    // Init the instruction position within the function. 0 means the
+    // beginning of the function, and curFuncAddr will later take on the
+    // role of remembering the eip instruction pointer
     newThread->curFuncAddr = 0;
     // Thread starts off 0, meaning curFuncAddr should also be checked
     // to see if the thread simply hasn't started yet
@@ -105,16 +93,8 @@ void newProc(uint32_t argBytes, void* funcAddr, ...)
     // Copy function arguments into bottom of stack (highest addresses)
     memcpy(newThread->t_StackBot - argBytes, vargArgStart, argBytes);
     // Put newThread into global thread manager, allocating space for the
-    // pointer if necessary
-    if (g_threadManager->threadArrIndex < g_threadManager->threadArrLen)
-    {
-        // Place pointer into ThreadData* array
-        g_threadManager->threadArr[g_threadManager->threadArrIndex] = newThread;
-        // Increment index
-        g_threadManager->threadArrIndex++;
-    }
-    // We need to allocate more space for the threadArr array
-    else
+    // pointer if necessary. Check first if we need to allocate more memory
+    if (g_threadManager->threadArrIndex >= g_threadManager->threadArrLen)
     {
         // Allocate more space for thread manager
         g_threadManager->threadArr = (ThreadData**)realloc(
@@ -123,15 +103,16 @@ void newProc(uint32_t argBytes, void* funcAddr, ...)
                 THREAD_DATA_ARR_MUL_INCREASE);
         g_threadManager->threadArrLen =
             g_threadManager->threadArrLen * THREAD_DATA_ARR_MUL_INCREASE;
-        // Place pointer into ThreadData* array
-        g_threadManager->threadArr[g_threadManager->threadArrIndex] = newThread;
-        // Increment index
-        g_threadManager->threadArrIndex++;
     }
+    // Place pointer into ThreadData* array
+    g_threadManager->threadArr[g_threadManager->threadArrIndex] = newThread;
+    // Increment index
+    g_threadManager->threadArrIndex++;
 }
 
-void execAllManagedFuncs()
+void execScheduler()
 {
+    // This is a blindingly terrible scheduler
     uint32_t i = 0;
     uint8_t stillValid = 0;
     for (i = 0; i < g_threadManager->threadArrIndex; i++)

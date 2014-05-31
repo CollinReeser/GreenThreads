@@ -38,7 +38,7 @@ typedef struct
 } ThreadData;
 
 extern void callFunc(uint32_t argBytes, void* funcAddr, uint8_t* stackPtr, ThreadData* curThread);
-extern void yield(uint32_t status);
+extern void yield();
 
 void newProc(uint32_t argBytes, void* funcAddr, ...);
 
@@ -64,6 +64,6 @@ void takedownThreadManager();
 
 void addThreadData(uint32_t argBytes, void* funcAddr, ...);
 
-void execAllManagedFuncs();
+void execScheduler();
 
 #endif

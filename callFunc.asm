@@ -1,14 +1,3 @@
-    extern printf      ; the C function, to be called
-    extern average
-    extern example_func
-    extern addThreadData
-    extern hitASM
-    extern printThreadData
-
-    SECTION .data       ; Data section, initialized variables
-
-fmt:    db "Entered asm func", 10, 0 ;
-val:    db "Val: %u", 10, 0
 
     SECTION .bss
 
@@ -17,7 +6,7 @@ currentthread:  resd 1 ; Pointer to current thread
 
     SECTION .text
 
-    ; extern void yield(uint32_t status);
+    ; extern void yield();
     global yield
 yield:
     push    ebp
@@ -27,10 +16,8 @@ yield:
     mov     edx, dword [currentthread]
     ; Get return address
     mov     eax, [ebp+4]
-    ; Get yield status value
-    mov     ecx, [ebp+8]
     ; Set validity of thread
-    mov     [edx + 28], ecx ; ThreadData->stillValid
+    mov     [edx + 28], dword 1 ; ThreadData->stillValid
     ; Set return address to continue execution
     mov     [edx + 4], eax  ; ThreadData->curFuncAddr
     ; Determine current value of esp from perspective of curThread
@@ -70,6 +57,8 @@ callFunc:
     test    ecx, ecx
     ; If not zero, then continue where we left off
     jne     continueThread
+
+    ; If we get here, we're starting the execution of a new thread
 
     ; Get rest of arguments
     mov     eax, dword [ebp + 8]    ; argBytes (counter)

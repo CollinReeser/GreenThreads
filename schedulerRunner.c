@@ -26,7 +26,7 @@ void average_novararg(uint8_t one, uint8_t two, uint8_t three)
     printf("One    : %3u, address: %X\n", one, &one);
     printf("Two    : %3u, address: %X\n", two, &two);
     printf("Three  : %3u, address: %X\n", three, &three);
-    yield(1);
+    yield();
     printf("Average: %f\n", (one + two + three) / 3.0);
 }
 
@@ -47,7 +47,7 @@ void hailstone(uint32_t start)
             iter = iter * 3 + 1;
             count++;
         }
-        yield(1);
+        yield();
     }
     printf("%5u takes %5u (%X) steps.\n", start, count, &count);
 }
@@ -62,7 +62,7 @@ int fib(int x)
     {
         return 1;
     }
-    yield(1);
+    yield();
     return fib(x-1)+fib(x-2);
 }
 
@@ -89,7 +89,7 @@ void numProducer(uint32_t num, uint32_t willProduce, Channel* chan)
         {
             printf("Value not yet read on channel %X\n", chan);
         }
-        yield(1);
+        yield();
     }
     closeChannel(chan);
 }
@@ -109,7 +109,7 @@ void numConsumer(Channel* chan)
         {
             printf("No value available on channel %X\n", chan);
         }
-        yield(1);
+        yield();
     }
     destroyChannel(chan);
 }
@@ -125,7 +125,7 @@ void spawnInner(int count, int endVal)
             newProc(sizeof(uint32_t) * 2, &spawnInner, count + 1, endVal);
             printf("  Created new thread. count: %u :: endVal: %u\n", count + 1, endVal);
             printf("    Yielding...\n");
-            yield(1);
+            yield();
         }
     }
 }
@@ -193,7 +193,7 @@ int main(int argc, char** argv)
 
     newProc(0, &threadMain);
 
-    execAllManagedFuncs();
+    execScheduler();
 
     takedownThreadManager();
 
