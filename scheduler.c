@@ -14,17 +14,19 @@ void printThreadData(ThreadData* curThread)
     printf("    ThreadData* curThread: %X\n", curThread);
     printf("    funcAddr             : %X\n", curThread->funcAddr);
     printf("    curFuncAddr          : %X\n", curThread->curFuncAddr);
-    printf("    funcArgsLen          : %u\n", curThread->funcArgsLen);
+    printf("    numArgs              : %u\n", curThread->numArgs);
     printf("    t_StackBot           : %X\n", curThread->t_StackBot);
     printf("    t_StackCur           : %X\n", curThread->t_StackCur);
     printf("    t_StackRaw           : %X\n", curThread->t_StackRaw);
-    printf("    t_ebp                : %X\n", curThread->t_ebp);
+    printf("    t_rbp                : %X\n", curThread->t_rbp);
     printf("    stillValid           : %u\n", curThread->stillValid);
+    printf("    funcArgs             : %u\n", curThread->funcArgs);
+    printf("    funcArgsLens         : %u\n", curThread->funcArgsLens);
 }
 
 void callThreadFunc(ThreadData* thread)
 {
-    callFunc(thread->funcArgsLen, thread->funcAddr, thread->t_StackBot, thread);
+    callFunc(thread);
 }
 
 void deallocThreadData(ThreadData* thread)
@@ -62,7 +64,7 @@ void takedownThreadManager()
     free(g_threadManager);
 }
 
-void newProc(uint32_t argBytes, void* funcAddr, ...)
+void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
 {
     // Alloc new ThreadData
     ThreadData* newThread = (ThreadData*)malloc(sizeof(ThreadData));
@@ -76,9 +78,9 @@ void newProc(uint32_t argBytes, void* funcAddr, ...)
     // to see if the thread simply hasn't started yet
     newThread->stillValid = 0;
     // Thread starts off with unitialized stack frame pointer
-    newThread->t_ebp = 0;
+    newThread->t_rbp = 0;
     // Init the length in bytes of the function arguments in total
-    newThread->funcArgsLen = argBytes;
+    newThread->numArgs = numArgs;
     // mmap thread stack
     newThread->t_StackRaw = (uint8_t*)mmap(NULL, THREAD_STACK_SIZE,
                                            PROT_READ|PROT_WRITE,
@@ -88,10 +90,73 @@ void newProc(uint32_t argBytes, void* funcAddr, ...)
     newThread->t_StackCur = 0;
     // Make t_StackBot point to "bottom" of stack (highest address)
     newThread->t_StackBot = newThread->t_StackRaw + THREAD_STACK_SIZE - 1;
-    // Get the address on the stack that the arguments start at
-    uint8_t* vargArgStart = (uint8_t*)(&funcAddr) + sizeof(funcAddr);
-    // Copy function arguments into bottom of stack (highest addresses)
-    memcpy(newThread->t_StackBot - argBytes, vargArgStart, argBytes);
+
+    // TODO finish putting things on the stack. Note that this is tricky because
+    // after the 6th (or 8th, in the case of floats) register is accounted for,
+    // arguments are then supposed to appear on the stack backwards, as in
+    // the last argument pushed first. So this isn't straightforward. We're
+    // probably gonna need to go through the args once to figure out what needs
+    // to be on the stack, and then go through them again backwards, actually
+    // doing it
+
+    // This is an overallocation for the stack vars
+    void* stackVars = malloc(numArgs * 8);
+    // 8 * 6 bytes for the int registers, and 8 * 8 bytes for the xmm registers
+    void* regVars = malloc((8 * 6) + (8 * 8));
+    // Place any int args past the sixth int arg and any float args past the
+    // 8th float arg onto the stack
+    uint32_t intArgsIndex = 0;
+    uint32_t floatArgsIndex = 0;
+    uint32_t i = 0;
+    uint32_t onStack = 0;
+    for (; i < numArgs; i++)
+    {
+        if (argLens[i] > 0)
+        {
+            // Put the argument on the stack
+            if (intArgsIndex >= 6)
+            {
+                ((uint64_t*)stackVars)[onStack] = ((uint64_t*)args)[i];
+                onStack++;
+            }
+            // Put the argument in the memory allocated for argument registers
+            else
+            {
+                ((uint64_t*)regVars)[intArgsIndex] = ((uint64_t*)args)[i];
+            }
+            intArgsIndex++;
+        }
+        else
+        {
+            // Put the argument on the stack
+            if (floatArgsIndex >= 8)
+            {
+                ((double*)stackVars)[onStack] = ((double*)args)[i];
+                onStack++;
+            }
+            // Put the argument in the memory allocated for argument registers
+            else
+            {
+                // Jump the pointer forward 48 bytes, past where the int reg
+                // stuff goes
+                ((double*)regVars + (8 * 6))[floatArgsIndex]
+                    = ((double*)args)[i];
+            }
+            floatArgsIndex++;
+        }
+    }
+    if (onStack > 0)
+    {
+        for (i = onStack - 1; i >= 0; i--)
+        {
+            ((uint64_t*)newThread->t_StackBot - i * 8)[0]
+                = ((uint64_t*)stackVars)[i];
+        }
+    }
+    free(stackVars);
+    newThread->regVars = regVars;
+    // Number of bytes allocated for arguments on stack
+    newThread->stackArgsSize = onStack * 8;
     // Put newThread into global thread manager, allocating space for the
     // pointer if necessary. Check first if we need to allocate more memory
     if (g_threadManager->threadArrIndex >= g_threadManager->threadArrLen)
@@ -117,16 +182,23 @@ void execScheduler()
     uint8_t stillValid = 0;
     for (i = 0; i < g_threadManager->threadArrIndex; i++)
     {
+        printf("  scheduler i: %d\n", i);
+        printf("  threadArrIndex begin: %d\n", g_threadManager->threadArrIndex);
         ThreadData* curThread = g_threadManager->threadArr[i];
         if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
         {
+            printf("  callThreadFunc()\n");
             stillValid = 1;
             callThreadFunc(curThread);
+            printf("  callThreadFunc() exit\n");
         }
         if (i + 1 >= g_threadManager->threadArrIndex && stillValid != 0)
         {
+            printf("  reset block\n");
             i = -1;
             stillValid = 0;
         }
+        printf("  threadArrIndex end: %d\n", g_threadManager->threadArrIndex);
     }
+    printf("Finished at scheduler\n");
 }

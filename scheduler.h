@@ -14,33 +14,48 @@ typedef struct
     // Current position in function (0 if start of function)
     // Will be the value that eip needs to be to continue execution
     void* curFuncAddr;
-    // Number of bytes that make up arguments. Probably multiple of 4
-    uint32_t funcArgsLen;
+    // Number of arguments in the funcArgs array, and number of entries in the
+    // funcArgsLens array
+    uint32_t numArgs;
     // Pointer to bottom of allocated stack (that grows DOWNWARD). That is,
     // this is a pointer to the highest address valid in the stack
     uint8_t* t_StackBot;
     // This is a pointer to the current value of the stack as should be used
     // for execution. That is, after returning to this thread from being
-    // yielded away from it, set esp to this value
+    // yielded away from it, set rsp to this value
     uint8_t* t_StackCur;
     // Pointer to the beginning of the memory area allocated for the stack.
     // This is what was originally returned by mmap, and what should be used
     // with munmap
     uint8_t* t_StackRaw;
     // ebp of thread, other portion of saving stack information. 0 if un-init
-    uint8_t* t_ebp;
+    uint8_t* t_rbp;
     // Whether this thread has finished execution or not. Non-zero if still
     // valid, 0 if the thread is finished or the thread has not started yet.
     // That is to say, the thread is finished if curFuncAddr is non-zero and
     // stillValid is 0, and the thread is still valid if stillValid != 0 OR
     // curFuncAddr == 0
     uint8_t stillValid;
+    // Where the function arguments are initially stored
+    void* funcArgs;
+    // The size of each argument in funcArgs
+    int8_t* funcArgsLens;
+    // Amount of bytes that were used for the stack allocation of arguments
+    uint32_t stackArgsSize;
+    // Memory populated with the function arguments to be placed in registers
+    // in a canned way in callFunc
+    void* regVars;
 } ThreadData;
 
-extern void callFunc(uint32_t argBytes, void* funcAddr, uint8_t* stackPtr, ThreadData* curThread);
+extern void callFunc(ThreadData* curThread);
 extern void yield();
 
-void newProc(uint32_t argBytes, void* funcAddr, ...);
+// The size values in argLens can be positive or negative. If they're positive,
+// then it's an int val that must appear either in an r-family register,
+// or on the stack after the sixth integer argument. If they're negative,
+// then it's a float val that must appear either in an x-family register,
+// or on the stack after the eighth integer argument
+void newProc(uint32_t argBytes, void* funcAddr, int8_t* argLens, void* args);
 
 void printThreadData(ThreadData* curThread);
 
@@ -62,7 +77,7 @@ void initThreadManager();
 
 void takedownThreadManager();
 
-void addThreadData(uint32_t argBytes, void* funcAddr, ...);
+// void addThreadData(uint32_t argBytes, void* funcAddr, ...);
 
 void execScheduler();
 
