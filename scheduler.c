@@ -89,7 +89,7 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     // StackCur starts as a meaningless pointer
     newThread->t_StackCur = 0;
     // Make t_StackBot point to "bottom" of stack (highest address)
-    newThread->t_StackBot = newThread->t_StackRaw + THREAD_STACK_SIZE - 1;
+    newThread->t_StackBot = newThread->t_StackRaw + THREAD_STACK_SIZE;
 
     // TODO finish putting things on the stack. Note that this is tricky because
     // after the 6th (or 8th, in the case of floats) register is accounted for,
@@ -182,23 +182,16 @@ void execScheduler()
     uint8_t stillValid = 0;
     for (i = 0; i < g_threadManager->threadArrIndex; i++)
     {
-        printf("  scheduler i: %d\n", i);
-        printf("  threadArrIndex begin: %d\n", g_threadManager->threadArrIndex);
         ThreadData* curThread = g_threadManager->threadArr[i];
         if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
         {
-            printf("  callThreadFunc()\n");
             stillValid = 1;
             callThreadFunc(curThread);
-            printf("  callThreadFunc() exit\n");
         }
         if (i + 1 >= g_threadManager->threadArrIndex && stillValid != 0)
         {
-            printf("  reset block\n");
             i = -1;
             stillValid = 0;
         }
-        printf("  threadArrIndex end: %d\n", g_threadManager->threadArrIndex);
     }
-    printf("Finished at scheduler\n");
 }

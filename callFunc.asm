@@ -1,24 +1,8 @@
 
-    extern printf
-
     SECTION .bss
 
 mainstack:      resq 1 ; Stored mainstack rsp
 currentthread:  resq 1 ; Pointer to current thread
-
-rax_0: resq 1
-rcx_0: resq 1
-rdx_0: resq 1
-rsi_0: resq 1
-rdi_0: resq 1
-rsp_0: resq 1
-r8_0: resq 1
-r9_0: resq 1
-r10_0: resq 1
-r11_0: resq 1
-
-    SECTION .data
-__S0: db `Hit here`, 10, 0
 
     SECTION .text
 
@@ -51,55 +35,16 @@ yield:
     jmp     schedulerReturn
 
 
-    ; extern void callFunc(size_t argBytes, void* funcAddr, uint8_t* stackPtr, ThreadData* curThread);
+    ; extern void callFunc(ThreadData* curThread);
     global callFunc
 callFunc:
     push    rbp                     ; set up stack frame
     mov     rbp,rsp
-    sub     rsp, 128
-
-
-
-    mov     qword [rbp-8], rbx      ; Register preservation
-    mov     qword [rbp-16], r12
-    mov     qword [rbp-24], r13
-    mov     qword [rbp-32], r14
-    mov     qword [rbp-40], r15
-    ; push    rbx
-    ; push    r12
-    ; push    r13
-    ; push    r14
-    ; push    r15
-
-
-    ; mov     qword [rax_0], rax
-    ; mov     qword [rcx_0], rcx
-    ; mov     qword [rdx_0], rdx
-    ; mov     qword [rsi_0], rsi
-    ; mov     qword [rdi_0], rdi
-    ; mov     qword [rsp_0], rsp
-    ; mov     qword [r8_0], r8
-    ; mov     qword [r9_0], r9
-    ; mov     qword [r10_0], r10
-    ; mov     qword [r11_0], r11
-    ; mov     rdi, __S0
-    ; call    printf
-    ; mov     rax, qword [rax_0]
-    ; mov     rcx, qword [rcx_0]
-    ; mov     rdx, qword [rdx_0]
-    ; mov     rsi, qword [rsi_0]
-    ; mov     rdi, qword [rdi_0]
-    ; mov     rsp, qword [rsp_0]
-    ; mov     r8, qword [r8_0]
-    ; mov     r9, qword [r9_0]
-    ; mov     r10, qword [r10_0]
-    ; mov     r11, qword [r11_0]
-
 
     ; Populate registers for operation. ThreadData* thread is initially in rdi
     mov     rcx, rdi            ; ThreadData* thread
     mov     rdi, qword [rcx+80] ; ThreadData->stackArgsSize
-    mov     r12, qword [rcx]    ; ThreadData->funcAddr
+    mov     r11, qword [rcx]    ; ThreadData->funcAddr
     mov     rdx, qword [rcx+24] ; ThreadData->t_StackBot
     mov     rax, qword [rcx+88] ; ThreadData->regVars
     ; First set the currentthread value
@@ -114,7 +59,7 @@ callFunc:
 
     ; If we get here, we're starting the execution of a new thread
 
-    mov     qword [rcx+8], r12  ; ThreadData->curFuncAddr, init to start of func
+    mov     qword [rcx+8], r11  ; ThreadData->curFuncAddr, init to start of func
 
     ; Set stack pointer to be before arguments
     sub     rdx, rdi
@@ -143,7 +88,7 @@ callFunc:
     movsd   xmm6, qword [rax+96]
     movsd   xmm7, qword [rax+104]
 
-    jmp     r12                     ; Call function
+    jmp     r11                     ; Call function
 
 
 continueThread:
@@ -172,12 +117,6 @@ schedulerReturn:
     mov     rsp, qword [mainstack]
     ; Restore current rbp
     pop     rbp
-
-    mov     rbx, qword [rbp-8]                     ; Restore registers
-    mov     r12, qword [rbp-16]
-    mov     r13, qword [rbp-24]
-    mov     r14, qword [rbp-32]
-    mov     r15, qword [rbp-40]
 
     mov     rsp, rbp                ; takedown stack frame
     pop     rbp

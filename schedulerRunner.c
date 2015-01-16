@@ -26,12 +26,8 @@ void average_novararg(uint8_t one, uint8_t two, uint8_t three)
     printf("One    : %3u, address: %X\n", one, &one);
     printf("Two    : %3u, address: %X\n", two, &two);
     printf("Three  : %3u, address: %X\n", three, &three);
-    printf("Here\n");
     yield();
-    float x = (one + two + three) / 3.0;
-    printf("After yield\n");
-    // printf("%f\n", 1234.0);
-    // printf("Average: %f\n", (one + two + three) / 3.0);
+    printf("Average: %f\n", (one + two + three) / 3.0);
 }
 
 // void hailstone(uint32_t start)
@@ -156,7 +152,6 @@ void threadMain()
     ((uint64_t*)args)[1] = 20;
     ((uint64_t*)args)[2] = 30;
     newProc(3, &average_novararg, argLens, args);
-    printf("Successfully newProc'd\n");
     printf("Instantiating average_novararg\n");
     ((uint64_t*)args)[0] = 20;
     ((uint64_t*)args)[1] = 30;
@@ -214,7 +209,6 @@ int main(int argc, char** argv)
     newProc(0, &threadMain, NULL, NULL);
 
     execScheduler();
-    printf("Escaped from scheduler\n");
 
     takedownThreadManager();
 
