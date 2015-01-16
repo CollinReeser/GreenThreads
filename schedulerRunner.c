@@ -27,9 +27,9 @@ void average_novararg(uint8_t one, uint8_t two, uint8_t three)
     printf("Two    : %3u, address: %X\n", two, &two);
     printf("Three  : %3u, address: %X\n", three, &three);
     printf("Here\n");
-    // yield();
+    yield();
     float x = (one + two + three) / 3.0;
-    printf("Here\n");
+    printf("After yield\n");
     // printf("%f\n", 1234.0);
     // printf("Average: %f\n", (one + two + three) / 3.0);
 }

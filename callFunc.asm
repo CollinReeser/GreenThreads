@@ -44,11 +44,11 @@ yield:
     mov     [rdx+32], rcx   ; ThreadData->t_StackCur
 
     ; Restore rbp and "pop" return address and yield status off stack
-    mov     rbp, [rbp-48]
-    ; pop     rbp
+    ; mov     rbp, [rbp-48]
+    pop     rbp
     ; Previously 8. Needs to be at least 8 for return address, but size of
     ; yield status is unknown. Assumed 8
-    add     rsp, 16
+    add     rsp, 8
 
     ; Save rbp for thread
     mov     [rdx+48], rbp ; ThreadData->t_rbp
@@ -128,8 +128,8 @@ callFunc:
     mov     qword [rdx], schedulerReturn
 
     ; Store the value of the main stack pointer, and store rbp as top value
-    mov     [rbp-48], rbp
-    ; push    rbp
+    ; mov     [rbp-48], rbp
+    push    rbp
     mov     qword [mainstack], rsp
     mov     rsp, rdx
 
@@ -157,8 +157,8 @@ continueThread:
     ; In order to restart execution, we need to set rsp to correct value,
     ; and then "return" to the previous stage of execution. As part of setting
     ; up for a clean return, push rbp as the last thing on the mainstack
-    mov     [rbp-48], rbp
-    ; push    rbp
+    ; mov     [rbp-48], rbp
+    push    rbp
     ; Save mainstack rsp
     mov     qword [mainstack], rsp
     ; Set rsp to StackCur of current thread
@@ -178,8 +178,8 @@ schedulerReturn:
     ; Restore the value of the main stack pointer
     mov     rsp, qword [mainstack]
     ; Restore current rbp
-    mov     rbp, qword [rbp-48]
-    ; pop     rbp
+    ; mov     rbp, qword [rbp-48]
+    pop     rbp
 
     mov     rbx, qword [rbp-8]                     ; Restore registers
     mov     r12, qword [rbp-16]
