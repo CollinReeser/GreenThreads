@@ -25,29 +25,22 @@ __S0: db `Hit here`, 10, 0
     ; extern void yield();
     global yield
 yield:
-    push    rbp
-    mov     rbp, rsp
-
     ; Get curThread pointer
     mov     rdx, qword [currentthread]
     ; Get return address
-    mov     rax, [rbp+8]
+    mov     rax, [rsp]
     ; Set validity of thread
     mov     byte [rdx+56], 1 ; ThreadData->stillValid
     ; Set return address to continue execution
     mov     [rdx+8], rax  ; ThreadData->curFuncAddr
     ; Determine current value of rsp from perspective of curThread
     mov     rcx, rsp
-    ; Need to remove rbp, return address from consideration
-    add     rcx, 16
+    ; Need to remove return address from consideration
+    add     rcx, 8
     ; Set curThread StackCur value
     mov     [rdx+32], rcx   ; ThreadData->t_StackCur
-
-    ; Restore rbp
-    pop     rbp
     ; Pop return address off the stack
     add     rsp, 8
-
     ; Save rbp for thread
     mov     [rdx+48], rbp ; ThreadData->t_rbp
 
