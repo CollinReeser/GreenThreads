@@ -17,18 +17,15 @@ yield:
     mov     rdx, qword [currentthread]
     ; Get return address
     mov     rax, [rsp]
+    ; Pop return address off the stack
+    add     rsp, 8
     ; Set validity of thread
     mov     byte [rdx+48], 1 ; ThreadData->stillValid
     ; Set return address to continue execution
     mov     [rdx+8], rax  ; ThreadData->curFuncAddr
-    ; Determine current value of rsp from perspective of curThread
-    mov     rcx, rsp
-    ; Need to remove return address from consideration
-    add     rcx, 8
-    ; Set curThread StackCur value
-    mov     [rdx+24], rcx   ; ThreadData->t_StackCur
-    ; Pop return address off the stack
-    add     rsp, 8
+    ; Set curThread StackCur value, now that rsp is pointing to the top of
+    ; the stack of the function that just yielded
+    mov     [rdx+24], rsp   ; ThreadData->t_StackCur
     ; Save rbp for thread
     mov     [rdx+40], rbp ; ThreadData->t_rbp
 
