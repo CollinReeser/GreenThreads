@@ -36,7 +36,7 @@ yield:
     global callFunc
 callFunc:
     push    rbp                     ; set up stack frame
-    mov     rbp,rsp
+    mov     rbp, rsp
 
     ; Populate registers for operation. ThreadData* thread is initially in rdi
     mov     rcx, rdi            ; ThreadData* thread
@@ -107,6 +107,7 @@ continueThread:
     mov     byte [rcx+48], 0    ; ThreadData->stillValid
     ; Get "return" address to return to thread execution point
     mov     rcx, qword [rcx+8] ; ThreadData->curFuncAddr
+    ; Jump back into function
     jmp     rcx
 
 
