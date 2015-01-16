@@ -14,14 +14,11 @@ void printThreadData(ThreadData* curThread)
     printf("    ThreadData* curThread: %X\n", curThread);
     printf("    funcAddr             : %X\n", curThread->funcAddr);
     printf("    curFuncAddr          : %X\n", curThread->curFuncAddr);
-    printf("    numArgs              : %u\n", curThread->numArgs);
     printf("    t_StackBot           : %X\n", curThread->t_StackBot);
     printf("    t_StackCur           : %X\n", curThread->t_StackCur);
     printf("    t_StackRaw           : %X\n", curThread->t_StackRaw);
     printf("    t_rbp                : %X\n", curThread->t_rbp);
     printf("    stillValid           : %u\n", curThread->stillValid);
-    printf("    funcArgs             : %u\n", curThread->funcArgs);
-    printf("    funcArgsLens         : %u\n", curThread->funcArgsLens);
 }
 
 void callThreadFunc(ThreadData* thread)
@@ -79,8 +76,6 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     newThread->stillValid = 0;
     // Thread starts off with unitialized stack frame pointer
     newThread->t_rbp = 0;
-    // Init the length in bytes of the function arguments in total
-    newThread->numArgs = numArgs;
     // mmap thread stack
     newThread->t_StackRaw = (uint8_t*)mmap(NULL, THREAD_STACK_SIZE,
                                            PROT_READ|PROT_WRITE,

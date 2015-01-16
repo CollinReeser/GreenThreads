@@ -18,7 +18,7 @@ yield:
     ; Get return address
     mov     rax, [rsp]
     ; Set validity of thread
-    mov     byte [rdx+56], 1 ; ThreadData->stillValid
+    mov     byte [rdx+48], 1 ; ThreadData->stillValid
     ; Set return address to continue execution
     mov     [rdx+8], rax  ; ThreadData->curFuncAddr
     ; Determine current value of rsp from perspective of curThread
@@ -26,11 +26,11 @@ yield:
     ; Need to remove return address from consideration
     add     rcx, 8
     ; Set curThread StackCur value
-    mov     [rdx+32], rcx   ; ThreadData->t_StackCur
+    mov     [rdx+24], rcx   ; ThreadData->t_StackCur
     ; Pop return address off the stack
     add     rsp, 8
     ; Save rbp for thread
-    mov     [rdx+48], rbp ; ThreadData->t_rbp
+    mov     [rdx+40], rbp ; ThreadData->t_rbp
 
     jmp     schedulerReturn
 
@@ -43,10 +43,11 @@ callFunc:
 
     ; Populate registers for operation. ThreadData* thread is initially in rdi
     mov     rcx, rdi            ; ThreadData* thread
-    mov     rdi, qword [rcx+80] ; ThreadData->stackArgsSize
+    xor     rdi, rdi
+    mov     edi, dword [rcx+52] ; ThreadData->stackArgsSize
     mov     r11, qword [rcx]    ; ThreadData->funcAddr
-    mov     rdx, qword [rcx+24] ; ThreadData->t_StackBot
-    mov     rax, qword [rcx+88] ; ThreadData->regVars
+    mov     rdx, qword [rcx+16] ; ThreadData->t_StackBot
+    mov     rax, qword [rcx+56] ; ThreadData->regVars
     ; First set the currentthread value
     mov     qword [currentthread], rcx ; ThreadData* thread
 
@@ -100,13 +101,13 @@ continueThread:
     ; Save mainstack rsp
     mov     qword [mainstack], rsp
     ; Set rsp to StackCur of current thread
-    mov     rsp, qword [rcx+32] ; ThreadData->t_StackCur
+    mov     rsp, qword [rcx+24] ; ThreadData->t_StackCur
     ; Set rbp to t_rbp of current thread
-    mov     rbp, qword [rcx+48] ; ThreadData->t_rbp
+    mov     rbp, qword [rcx+40] ; ThreadData->t_rbp
     ; Set stillValid to 0, to account for possibly naturally returning from
     ; the function at the end of its execution. A thread is still valid if
     ; stillValid != 0 OR curFuncAddr == 0 (meaning thread hasn't started yet)
-    mov     byte [rcx+56], 0    ; ThreadData->stillValid
+    mov     byte [rcx+48], 0    ; ThreadData->stillValid
     ; Get "return" address to return to thread execution point
     mov     rcx, qword [rcx+8] ; ThreadData->curFuncAddr
     jmp     rcx

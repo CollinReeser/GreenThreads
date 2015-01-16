@@ -14,9 +14,6 @@ typedef struct
     // Current position in function (0 if start of function)
     // Will be the value that eip needs to be to continue execution
     void* curFuncAddr;
-    // Number of arguments in the funcArgs array, and number of entries in the
-    // funcArgsLens array
-    uint32_t numArgs;
     // Pointer to bottom of allocated stack (that grows DOWNWARD). That is,
     // this is a pointer to the highest address valid in the stack
     uint8_t* t_StackBot;
@@ -36,10 +33,6 @@ typedef struct
     // stillValid is 0, and the thread is still valid if stillValid != 0 OR
     // curFuncAddr == 0
     uint8_t stillValid;
-    // Where the function arguments are initially stored
-    void* funcArgs;
-    // The size of each argument in funcArgs
-    int8_t* funcArgsLens;
     // Amount of bytes that were used for the stack allocation of arguments
     uint32_t stackArgsSize;
     // Memory populated with the function arguments to be placed in registers
