@@ -25,6 +25,10 @@ __S0: db `Hit here`, 10, 0
     ; extern void yield();
     global yield
 yield:
+    ; Note that we have not set up the normal stack frame, so [rsp] is the the
+    ; return address on the stack, and rbp is whatever it is from the function
+    ; that called yield()
+
     ; Get curThread pointer
     mov     rdx, qword [currentthread]
     ; Get return address
